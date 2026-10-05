@@ -234,6 +234,33 @@ def test_docker_waits_for_both_packages_on_the_selected_index(tmp_path: Path, mo
 
 
 @pytest.mark.parametrize(
+    "version,wheel_version",
+    [
+        ("0.4.5-rc1", "0.4.5rc1"),
+        ("1.0.0.RC1", "1.0.0rc1"),
+        ("1.0.3-1", "1.0.3.post1"),
+    ],
+)
+def test_docker_wait_matches_normalized_wheel_versions(tmp_path: Path, version: str, wheel_version: str) -> None:
+    (tmp_path / "index.json").write_text(
+        '{"meta":{"api-version":"1.0"},"files":['
+        f'{{"filename":"ogx-{wheel_version}-py3-none-any.whl","yanked":false}},'
+        f'{{"filename":"ogx_api-{wheel_version}-py3-none-any.whl","yanked":false}}]}}'
+    )
+    result, _ = _run(
+        _package_readiness_step(),
+        tmp_path,
+        {
+            "needs.compute-version.outputs.version": version,
+            "steps.meta.outputs.install_mode": "pypi",
+            "steps.meta.outputs.package_name || 'ogx'": "ogx",
+        },
+        "curl() { cat index.json; }\nsleep() { return 1; }",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
     "unavailable_file",
     [
         '{"filename":"ogx-1.0.2-py3-none-any.whl","yanked":false}',

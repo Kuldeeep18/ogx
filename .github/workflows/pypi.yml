@@ -877,6 +877,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Install uv for wheel version matching
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          python-version: "3.12"
+
       - name: Set up QEMU for multi-arch builds
         if: contains(matrix.platforms, 'arm64')
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3
@@ -973,11 +978,12 @@ jobs:
           PACKAGES=("$PACKAGE_NAME")
           # Pre-rename releases can bundle their API instead of publishing it separately.
           if [ "$PACKAGE_NAME" == "ogx" ]; then PACKAGES+=(ogx-api); fi
+          WHEEL_VERSION=$(uv run --no-project --with packaging python -c 'from packaging.version import Version; import os; print(Version(os.environ["VERSION"]))')
 
           for i in $(seq 1 20); do
             READY=true
             for package in "${PACKAGES[@]}"; do
-              WHEEL_PREFIX="${package//-/_}-${VERSION}-"
+              WHEEL_PREFIX="${package//-/_}-${WHEEL_VERSION}-"
               if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
                 -H 'Accept: application/vnd.pypi.simple.v1+json' "${INDEX_URL}/${package}/" \
                 | jq --exit-status --arg prefix "$WHEEL_PREFIX" \
